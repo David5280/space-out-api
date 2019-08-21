@@ -120,34 +120,23 @@ app.post('/api/v1/moons', async (req, res) => {
         .send({ error: `You're missing a "${requiredParameter}" property.` });
     }
   }
-
-  getForeignId = async () => {
-    const planets = await dbConnection('planets')
-      .select('title', 'id')
-    const matchingPlanet = await planets.find(planet => {
-        if (planet.title === req.body.hostPlanet) {
-          return planet.id
-        }
-      })
-      if (!await matchingPlanet) {
-        return res.status(404).send(`No host planet named ${req.body.hostPlanet} was found.`)
-      }
-    return await matchingPlanet.id
-  }
-
+  const matchingPlanetId = await dbConnection('planets')
+  .where('title', req.body.hostPlanet)
+  .select('id')
+  .then(id => id[0].id)
   const moon = {
     moon: req.body.title,
-    planetId: await getForeignId()
+    planetId: await matchingPlanetId
   }
+  database('moons').insert(await moon, 'id')
+  .then(moon => {
+    res.status(201).json({ id: moon[0] })
+  })
+  .catch(error => {
+    res.status(500).json({ error: error.message, stack: error.stack })
+  })
+})
 
-  await database('moons').insert(await moon, 'id')
-    .then(moon => {
-      res.status(201).json({ id: moon[0] })
-    })
-    .catch(error => {
-      res.status(500).json({ error: error.message, stack: error.stack })
-    })
-});
 
 app.delete('/api/v1/planets/:id', (req, res) => {
   const requestId = req.params.id;
@@ -170,6 +159,5 @@ app.delete('/api/v1/moons/:id', (req, res) => {
     }))
     .catch(error => res.status(500).send(error))
 });
-
 
   
